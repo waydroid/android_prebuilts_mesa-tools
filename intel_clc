@@ -1,6 +1,6 @@
 #!/bin/bash
 DIR=$(dirname "$(realpath "$0")")
 LIBS="$DIR/root/lib64"
-BIN="$DIR/root/bin/intel_clc"
+BIN="$DIR/root/bin/$(basename "$0")"
 
 exec env LD_LIBRARY_PATH="$LIBS:$LD_LIBRARY_PATH" "$LIBS/ld-linux-x86-64.so.2" "$BIN" "$@"

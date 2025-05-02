@@ -5,3 +5,19 @@ cc_prebuilt_binary {
     device_supported: false,
     host_supported: true,
 }
+
+cc_prebuilt_binary {
+    name: "mesa_clc",
+    srcs: ["mesa_clc"],
+
+    device_supported: false,
+    host_supported: true,
+}
+
+cc_prebuilt_binary {
+    name: "vtn_bindgen2",
+    srcs: ["vtn_bindgen2"],
+
+    device_supported: false,
+    host_supported: true,
+}
