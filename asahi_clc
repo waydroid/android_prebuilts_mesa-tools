@@ -1,6 +1,50 @@
 #!/bin/bash
+
+set -e
+
 DIR=$(dirname "$(realpath "$0")")
 LIBS="$DIR/root/lib64"
 BIN="$DIR/root/bin/$(basename "$0")"
 
-exec env LD_LIBRARY_PATH="$LIBS:$LD_LIBRARY_PATH" "$LIBS/ld-linux-x86-64.so.2" "$BIN" "$@"
+sha256_file() {
+    sha256sum "$1" | awk '{print $1}'
+}
+
+shopt -s nullglob
+CHECKSUMS=("$LIBS"/*.sha256)
+
+for CHECKSUM in "${CHECKSUMS[@]}"; do
+    LIBRARY=${CHECKSUM%.sha256}
+    NAME=${LIBRARY##*/}
+
+    if ! read -r EXPECTED _ < "$CHECKSUM" ||
+       [[ ! "$EXPECTED" =~ ^[[:xdigit:]]{64}$ ]]; then
+        echo "$(basename "$0"): invalid checksum file: $CHECKSUM" >&2
+        exit 1
+    fi
+
+    if [ ! -f "$LIBRARY" ] || [ "$(sha256_file "$LIBRARY")" != "$EXPECTED" ]; then
+        PARTS=("$LIBRARY".part.*)
+        if ((${#PARTS[@]} == 0)); then
+            echo "$(basename "$0"): no chunks found for $NAME" >&2
+            exit 1
+        fi
+
+        TMP=$(mktemp "$LIBS/.${NAME}.tmp.XXXXXX")
+        trap 'rm -f "$TMP"' EXIT HUP INT TERM
+        cat "${PARTS[@]}" > "$TMP"
+
+        if [ "$(sha256_file "$TMP")" != "$EXPECTED" ]; then
+            echo "$(basename "$0"): reconstructed $NAME failed SHA-256 validation" >&2
+            exit 1
+        fi
+
+        mv -f "$TMP" "$LIBRARY"
+        trap - EXIT HUP INT TERM
+    fi
+done
+
+exec env \
+    LD_LIBRARY_PATH="$LIBS:${LD_LIBRARY_PATH:-}" \
+    "$LIBS/ld-linux-x86-64.so.2" \
+    "$BIN" "$@"
